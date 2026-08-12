@@ -172,6 +172,10 @@ html_final = f"""<!DOCTYPE html>
 </body>
 </html>"""
 
-hti = Html2Image(size=(1080, 1920))
+# Flags específicos para ejecutar Chrome sin interfaz en Linux/GitHub Actions
+hti = Html2Image(
+    size=(1080, 1920),
+    custom_flags=['--no-sandbox', '--disable-gpu', '--headless', '--disable-dev-shm-usage']
+)
 hti.screenshot(html_str=html_final, save_as='instagram_story.png')
 print("¡Imagen generada exitosamente!")
