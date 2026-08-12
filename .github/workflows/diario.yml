@@ -1,0 +1,34 @@
+name: Generar Historia Diario
+
+on:
+  schedule:
+    # Se ejecuta automáticamente todos los días a las 8:00 AM (hora Argentina / UTC-3)
+    - cron: '0 11 * * *'
+  workflow_dispatch: # Permite probarlo manualmente con un botón cuando quieras
+
+jobs:
+  ejecutar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Instalar Chrome y dependencias
+        run: |
+          pip install requests html2image
+
+      - name: Ejecutar Script de Clima
+        run: python generar_historia.py
+
+      - name: Guardar imagen e historial actualizado en GitHub
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add instagram_story.png historial_clima.json
+          git commit -m "Actualización diaria del clima" || exit 0
+          git push
