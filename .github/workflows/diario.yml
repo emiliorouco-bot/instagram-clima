@@ -1,4 +1,5 @@
-name: Generar Historia Diario
+name: Ejecutar Script de Clima
+run: python *.py
 
 on:
   schedule:
