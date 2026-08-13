@@ -3,7 +3,7 @@ import json
 import datetime
 import calendar
 import requests
-from html2image import Html2Image
+from playwright.sync_api import sync_playwright
 
 # ---------------------------------------------------------
 # CONFIGURACIÓN Y API KEY
@@ -172,10 +172,12 @@ html_final = f"""<!DOCTYPE html>
 </body>
 </html>"""
 
-# Flags específicos para ejecutar Chrome sin interfaz en Linux/GitHub Actions
-hti = Html2Image(
-    size=(1080, 1920),
-    custom_flags=['--no-sandbox', '--disable-gpu', '--headless', '--disable-dev-shm-usage']
-)
-hti.screenshot(html_str=html_final, save_as='instagram_story.png')
-print("¡Imagen generada exitosamente!")
+# Renderizado mediante Playwright (100% compatible con GitHub Actions)
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page(viewport={'width': 1080, 'height': 1920})
+    page.set_content(html_final)
+    page.screenshot(path='instagram_story.png')
+    browser.close()
+
+print("¡Imagen generada exitosamente con Playwright!")
