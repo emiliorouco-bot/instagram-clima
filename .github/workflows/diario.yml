@@ -1,5 +1,4 @@
-name: Ejecutar Script de Clima
-run: python *.py
+name: Generar Historia Diario
 
 on:
   schedule:
@@ -20,11 +19,12 @@ jobs:
 
       - name: Instalar dependencias y Playwright
         run: |
+          python -m pip install --upgrade pip
           pip install requests playwright
-          playwright install --with-deps chromium
+          python -m playwright install --with-deps chromium
 
       - name: Ejecutar Script de Clima
-        run: python generar_historia.py
+        run: python *.py
 
       - name: Guardar imagen e historial actualizado en GitHub
         run: |
