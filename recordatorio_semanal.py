@@ -115,7 +115,8 @@ def enviar_telegram(mensaje):
         print(mensaje)
         return
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": mensaje})
+    respuesta = requests.post(url, data={"chat_id": CHAT_ID, "text": mensaje})
+    print(f"Respuesta de Telegram (código {respuesta.status_code}): {respuesta.text}")
 
 if __name__ == "__main__":
     hoy = datetime.datetime.now()
