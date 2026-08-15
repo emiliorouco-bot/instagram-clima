@@ -3,12 +3,12 @@ import json
 import datetime
 import calendar
 import requests
-from playwright.sync_api import sync_playwright
+from html2image import Html2Image
 
 # ---------------------------------------------------------
-# CONFIGURACIÓN Y API KEY
+# 1. CONFIGURACIÓN Y API KEY
 # ---------------------------------------------------------
-API_KEY = "b8dbb3cc91cdd2ac7cf5adae5dedbb2f"
+API_KEY = os.environ.get("OPENWEATHER_API_KEY", "")
 CITY = "Buenos Aires"
 URL = f"https://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={API_KEY}&units=metric&lang=es"
 HISTORIAL_FILE = "historial_clima.json"
@@ -24,6 +24,100 @@ SVG_ICONS = {
       <line x1="58" y1="62" x2="50" y2="78" stroke="#38bdf8" stroke-width="5" stroke-linecap="round"/>
     </svg>'''
 }
+
+# ---------------------------------------------------------
+# BANCO DE RECOMENDACIONES POR TIPO DE CLIMA
+# Editá, agregá o sacá frases libremente. No repite hasta
+# agotar la lista de cada categoría.
+# ---------------------------------------------------------
+RECOMENDACIONES = {
+    "sol": [
+        "Los aleros bien calculados dejan pasar el sol de invierno y lo bloquean en verano: geometría solar aplicada.",
+        "La vegetación caduca frente a una fachada es una herramienta bioclimática antes que decorativa.",
+        "El asoleamiento correcto reduce el consumo energético mucho antes de pensar en climatización artificial.",
+        "Un patio bien orientado puede funcionar como regulador térmico de toda la vivienda.",
+        "La reflectancia de los materiales de fachada cambia por completo la sensación térmica interior.",
+        "Días como hoy son ideales para revisar el asoleamiento real de un proyecto en obra.",
+        "El color de una cubierta puede significar varios grados de diferencia en el confort interior."
+    ],
+    "nublado": [
+        "El paisaje cultural no es solo lo que se ve: es la relación histórica entre una comunidad y su territorio.",
+        "Ordenar el territorio es, ante todo, anticipar conflictos antes de que aparezcan.",
+        "Una laguna, un humedal o un borde urbano son también infraestructura, no solo naturaleza de fondo.",
+        "La gestión territorial efectiva empieza por reconocer los tiempos reales de cada comunidad, no los ideales del plano.",
+        "El patrimonio edificado y el paisaje natural comparten una misma lógica de conservación activa.",
+        "Prefigurar un territorio es imaginar sus usos futuros sin negar su historia.",
+        "La escala territorial exige otra paciencia que la escala del edificio.",
+        "Todo instrumento de ordenamiento territorial es, en el fondo, una negociación entre actores."
+    ],
+    "lluvia": [
+        "El agua de lluvia bien pensada en el diseño no es un problema: es un recurso a gestionar.",
+        "Los pavimentos permeables reducen la carga sobre el desagüe pluvial urbano.",
+        "Una cubierta verde no solo aísla: retiene y regula el agua de lluvia antes de que llegue a la calle.",
+        "El diseño de escurrimiento de una parcela define buena parte de su comportamiento frente a eventos extremos.",
+        "La gestión del agua pluvial empieza en el proyecto, no en la obra ya construida.",
+        "Días de lluvia como hoy ponen a prueba cada detalle constructivo mal resuelto.",
+        "El drenaje urbano sostenible es tan proyecto de arquitectura como cualquier fachada.",
+        "Pensar el agua como parte del diseño, y no como un imprevisto, cambia el resultado final."
+    ]
+}
+
+RECOMENDACIONES_HISTORIAL_FILE = "historial_recomendaciones.json"
+
+# ---------------------------------------------------------
+# CITAS DE ARQUITECTOS DE REFERENCIA
+# Frases cortas y verificadas. No dependen del clima: se
+# combinan con el banco de tips de cada categoría.
+# ---------------------------------------------------------
+CITAS_ARQUITECTOS = [
+    {"texto": "La luz construye el tiempo.", "autor": "Alberto Campo Baeza"},
+    {"texto": "La luz es el material más lujoso que existe.", "autor": "Alberto Campo Baeza"},
+    {"texto": "El espacio debe ser el resultado de la luz, no de la oscuridad.", "autor": "Luis Barragán"},
+    {"texto": "Cualquier obra arquitectónica que no exprese serenidad, es un error.", "autor": "Luis Barragán"},
+    {"texto": "La forma sigue a la función, pero sigue siendo la forma.", "autor": "Kenzo Tange"},
+    {"texto": "La arquitectura no es una cuestión de estilo, es una cuestión de ideas.", "autor": "Oscar Niemeyer"},
+    {"texto": "Lo que me atrae es la curva libre y sensual.", "autor": "Oscar Niemeyer"},
+    {"texto": "Si se ignora al hombre, la arquitectura es innecesaria.", "autor": "Álvaro Siza"},
+    {"texto": "La arquitectura no es un arte.", "autor": "Jacques Herzog"},
+    {"texto": "Toca la tierra ligeramente.", "autor": "Glenn Murcutt"},
+    {"texto": "La sustentabilidad se ha transformado en una frase hecha.", "autor": "Glenn Murcutt"},
+    {"texto": "Poder hacer una cosa no legitima hacerla.", "autor": "Glenn Murcutt"},
+    {"texto": "Todo lo que tiene aire acondicionado es porque está construido al revés.", "autor": "Glenn Murcutt"},
+]
+
+def elegir_recomendacion(tipo_clima):
+    """Elige una recomendación (tip práctico o cita de arquitecto) evitando
+    repetir hasta agotar el banco combinado. Devuelve dict {texto, autor}."""
+    import random
+
+    usadas = {}
+    if os.path.exists(RECOMENDACIONES_HISTORIAL_FILE):
+        with open(RECOMENDACIONES_HISTORIAL_FILE, "r", encoding="utf-8") as f:
+            try:
+                usadas = json.load(f)
+            except Exception:
+                usadas = {}
+
+    tips = [{"texto": t, "autor": None} for t in RECOMENDACIONES.get(tipo_clima, [])]
+    banco = tips + CITAS_ARQUITECTOS
+    if not banco:
+        return {"texto": "", "autor": None}
+
+    ya_usadas = usadas.get(tipo_clima, [])
+    disponibles = [r for r in banco if r["texto"] not in ya_usadas]
+
+    if not disponibles:
+        disponibles = banco
+        ya_usadas = []
+
+    elegida = random.choice(disponibles)
+    ya_usadas.append(elegida["texto"])
+    usadas[tipo_clima] = ya_usadas
+
+    with open(RECOMENDACIONES_HISTORIAL_FILE, "w", encoding="utf-8") as f:
+        json.dump(usadas, f, indent=2, ensure_ascii=False)
+
+    return elegida
 
 def obtener_clima():
     try:
@@ -93,10 +187,17 @@ def generar_filas_calendario(today, historial):
         rows_html += "</tr>"
     return rows_html
 
+# ---------------------------------------------------------
+# 2. GENERACIÓN DEL DISEÑO Y CONVERSIÓN A PNG
+# ---------------------------------------------------------
 today = datetime.datetime.now()
 clima_actual = obtener_clima()
 historial = gestionar_historial(today, clima_actual)
 progreso_año = calcular_progreso_año(today)
+recomendacion_del_dia = elegir_recomendacion(clima_actual)
+recomendacion_texto = recomendacion_del_dia.get("texto", "")
+recomendacion_autor = recomendacion_del_dia.get("autor")
+autor_html = f'<p class="quote-author">— {recomendacion_autor}</p>' if recomendacion_autor else ""
 
 meses_es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 nombre_mes = meses_es[today.month - 1]
@@ -128,6 +229,10 @@ html_final = f"""<!DOCTYPE html>
   .progress-bar-border {{ border: 3px solid #3f3f46; padding: 6px; background-color: #000000; border-radius: 8px; }}
   .progress-bar-bg {{ width: 100%; height: 36px; background-color: #18181b; position: relative; }}
   .progress-bar-fill {{ height: 100%; background-color: #eab308; }}
+  .quote-block {{ position: relative; padding: 10px 20px 10px 55px; margin-bottom: 55px; }}
+  .quote-mark {{ position: absolute; left: -6px; top: -30px; font-family: Georgia, 'Times New Roman', serif; font-size: 90pt; font-weight: 900; color: #eab308; opacity: 0.5; line-height: 1; }}
+  .quote-text {{ font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 27pt; font-weight: 500; color: #ffffff; line-height: 1.35; margin: 0; }}
+  .quote-author {{ font-size: 15pt; font-weight: 700; color: #eab308; text-transform: uppercase; letter-spacing: 1px; text-align: right; margin: 16px 0 0 0; }}
   .calendar-card {{ background: #09090b; border: 1px solid #27272a; border-radius: 28px; padding: 35px 25px; }}
   .calendar-table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
   .calendar-table th {{ font-size: 16pt; color: #71717a; padding-bottom: 25px; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; }}
@@ -157,6 +262,11 @@ html_final = f"""<!DOCTYPE html>
         </div>
       </div>
     </div>
+    <div class="quote-block">
+      <div class="quote-mark">"</div>
+      <p class="quote-text">{recomendacion_texto}</p>
+      {autor_html}
+    </div>
     <div class="calendar-card">
       <table class="calendar-table">
         <thead>
@@ -172,12 +282,8 @@ html_final = f"""<!DOCTYPE html>
 </body>
 </html>"""
 
-# Renderizado mediante Playwright (100% compatible con GitHub Actions)
-with sync_playwright() as p:
-    browser = p.chromium.launch()
-    page = browser.new_page(viewport={'width': 1080, 'height': 1920})
-    page.set_content(html_final)
-    page.screenshot(path='instagram_story.png')
-    browser.close()
+# Generar la imagen PNG directamente en formato 1080x1920
+hti = Html2Image(size=(1080, 1920))
+hti.screenshot(html_str=html_final, save_as='instagram_story.png')
 
-print("¡Imagen generada exitosamente con Playwright!")
+print("¡Imagen generada exitosamente como 'instagram_story.png'!")
