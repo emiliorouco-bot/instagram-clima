@@ -283,7 +283,10 @@ html_final = f"""<!DOCTYPE html>
 </html>"""
 
 # Generar la imagen PNG directamente en formato 1080x1920
-hti = Html2Image(size=(1080, 1920))
+hti = Html2Image(
+    size=(1080, 1920),
+    custom_flags=['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
+)
 hti.screenshot(html_str=html_final, save_as='instagram_story.png')
 
 print("¡Imagen generada exitosamente como 'instagram_story.png'!")
