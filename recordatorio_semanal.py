@@ -9,8 +9,8 @@ import requests
 #   TELEGRAM_BOT_TOKEN  -> token del bot
 #   TELEGRAM_CHAT_ID    -> tu chat id personal
 # ---------------------------------------------------------
-BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+BOT_TOKEN = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip().strip('"').strip("'")
+CHAT_ID = (os.environ.get("TELEGRAM_CHAT_ID") or "").strip().strip('"').strip("'")
 
 # Orden fijo de categorías. No hace falta guardar estado en
 # ningún lado: el número de semana ISO decide cuál toca.
