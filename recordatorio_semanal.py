@@ -14,28 +14,35 @@ CHAT_ID = (os.environ.get("TELEGRAM_CHAT_ID") or "").strip().strip('"').strip("'
 
 # Orden fijo de categorías. No hace falta guardar estado en
 # ningún lado: el número de semana ISO decide cuál toca.
+HASHTAGS_BASE = "#arquitectura #arquitecturaargentina #LaPlata #UNLP #arquitecto"
+
 CATEGORIAS = [
     {
         "titulo": "Gestión edilicia (GIE FAU)",
-        "sugerencia": "Una foto de un avance o intervención edilicia, o un criterio de gestión explicado en 2-3 líneas."
+        "sugerencia": "Una foto de un avance o intervención edilicia, o un criterio de gestión explicado en 2-3 líneas.",
+        "hashtags": "#gestionedilicia #mantenimientoedilicio #facilitiesmanagement #patrimonioarquitectonico #gestionpublica #edificiospublicos"
     },
     {
         "titulo": "Investigación y territorio",
-        "sugerencia": "Un mapa/imagen de un caso (Pila, Villa Devoto) o un concepto breve de tu marco teórico."
+        "sugerencia": "Un mapa/imagen de un caso (Pila, Villa Devoto) o un concepto breve de tu marco teórico.",
+        "hashtags": "#paisajecultural #ordenamientoterritorial #paisajismo #territorio #urbanismo #landscapearchitecture"
     },
     {
         "titulo": "Docencia (Taller de Comunicación)",
-        "sugerencia": "Un trabajo destacado de estudiantes (con permiso) o una consigna/criterio pedagógico."
+        "sugerencia": "Un trabajo destacado de estudiantes (con permiso) o una consigna/criterio pedagógico.",
+        "hashtags": "#docenciauniversitaria #tallerdearquitectura #educacionarquitectonica #universidad #docentes #FAU"
     },
     {
         "titulo": "Práctica profesional y pericial",
         "sugerencia": "Un concepto técnico-legal explicado simple, o una reflexión sobre la práctica profesional.",
-        "carpeta": "practica_profesional"
+        "carpeta": "practica_profesional",
+        "hashtags": "#peritajearquitectonico #practicaprofesional #arquitectolegal #consultoriatecnica #peritojudicial"
     },
     {
         "titulo": "Mirada arquitectónica (fotografía)",
         "sugerencia": "Una foto de obra, material o luz con tu mirada personal — un detalle que otros no se detienen a mirar.",
-        "carpeta": "mirada_arquitectonica"
+        "carpeta": "mirada_arquitectonica",
+        "hashtags": "#architecturephotography #arquitecturafotografia #texturas #detallearquitectonico #miradaarquitectonica"
     },
 ]
 
@@ -136,6 +143,8 @@ if __name__ == "__main__":
         )
     else:
         mensaje += "\n\n(Todavía no hay fotos cargadas en el banco para esta categoría.)"
+
+    mensaje += f"\n\n🏷️ {categoria['hashtags']} {HASHTAGS_BASE}"
 
     enviar_telegram(mensaje)
     print(mensaje)
