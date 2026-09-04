@@ -12,7 +12,6 @@ API_KEY = os.environ.get("OPENWEATHER_API_KEY", "")
 CITY = "La Plata,AR"
 URL = f"https://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={API_KEY}&units=metric&lang=es"
 HISTORIAL_FILE = "historial_clima.json"
-LLUVIA_HISTORIAL_FILE = "historial_lluvia.json"
 
 # ---------------------------------------------------------
 # ÍCONOS DE CLIMA
@@ -54,16 +53,12 @@ SVG_ICONS = {
 }
 
 def obtener_clima():
-    """Consulta el clima actual. Devuelve (tipo_clima, lluvia_mm).
-    lluvia_mm es la lluvia registrada en la última hora al momento
-    de la consulta (no un total exacto de las 24hs, limitación de
-    la API gratuita de OpenWeatherMap)."""
+    """Consulta el clima actual. Devuelve (tipo_clima, viento_kmh)."""
     try:
         res = requests.get(URL).json()
         main_weather = res['weather'][0]['main'].lower()
-        lluvia_mm = 0.0
-        if 'rain' in res:
-            lluvia_mm = res['rain'].get('1h', res['rain'].get('3h', 0.0))
+        viento_ms = res.get('wind', {}).get('speed', 0.0)
+        viento_kmh = round(viento_ms * 3.6, 1)
 
         if 'clear' in main_weather:
             tipo = "sol"
@@ -71,7 +66,7 @@ def obtener_clima():
             tipo = "lluvia"
         else:
             tipo = "nublado"
-        return tipo, round(lluvia_mm, 1)
+        return tipo, viento_kmh
     except Exception as e:
         print(f"Error consultando la API: {e}. Se usará 'sol' por defecto.")
         return "sol", 0.0
@@ -93,25 +88,12 @@ def gestionar_historial(today, tipo_clima):
 
     return historial
 
-def gestionar_lluvia(today, lluvia_mm_hoy):
-    """Guarda la lluvia del día y devuelve el acumulado del mes en curso."""
-    historial = {}
-    if os.path.exists(LLUVIA_HISTORIAL_FILE):
-        with open(LLUVIA_HISTORIAL_FILE, "r", encoding="utf-8") as f:
-            try:
-                historial = json.load(f)
-            except Exception:
-                historial = {}
-
-    fecha_key = today.strftime("%Y-%m-%d")
-    historial[fecha_key] = lluvia_mm_hoy
-
-    with open(LLUVIA_HISTORIAL_FILE, "w", encoding="utf-8") as f:
-        json.dump(historial, f, indent=2)
-
+def contar_dias_lluvia_mes(historial, today):
+    """Cuenta cuántos días del mes en curso están marcados como 'lluvia'
+    en el historial del calendario — dato que ya se guarda siempre bien,
+    a diferencia de un total de milímetros."""
     prefijo_mes = today.strftime("%Y-%m")
-    acumulado_mes = round(sum(v for k, v in historial.items() if k.startswith(prefijo_mes)), 1)
-    return acumulado_mes
+    return sum(1 for k, v in historial.items() if k.startswith(prefijo_mes) and v == "lluvia")
 
 def calcular_progreso_año(today):
     dia_del_año = today.timetuple().tm_yday
@@ -154,10 +136,10 @@ def generar_filas_calendario(today, historial):
 # 2. GENERACIÓN DEL DISEÑO Y CONVERSIÓN A PNG
 # ---------------------------------------------------------
 today = datetime.datetime.now()
-clima_actual, lluvia_mm_hoy = obtener_clima()
+clima_actual, viento_kmh = obtener_clima()
 historial = gestionar_historial(today, clima_actual)
 progreso_año = calcular_progreso_año(today)
-lluvia_acumulada_mes = gestionar_lluvia(today, lluvia_mm_hoy)
+dias_lluvia_mes = contar_dias_lluvia_mes(historial, today)
 
 meses_es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 nombre_mes = meses_es[today.month - 1]
@@ -189,12 +171,12 @@ html_final = f"""<!DOCTYPE html>
   .progress-bar-border {{ border: 3px solid #3f3f46; padding: 6px; background-color: #000000; border-radius: 8px; }}
   .progress-bar-bg {{ width: 100%; height: 36px; background-color: #18181b; position: relative; }}
   .progress-bar-fill {{ height: 100%; background-color: #eab308; }}
-  .rain-card {{ background: #111111; border: 1px solid #27272a; border-radius: 20px; padding: 26px 30px; margin-bottom: 50px; }}
-  .rain-row {{ width: 100%; }}
-  .rain-col {{ text-align: center; width: 50%; }}
-  .rain-value {{ font-size: 30pt; font-weight: 800; color: #38bdf8; }}
-  .rain-label {{ font-size: 14pt; font-weight: 600; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }}
-  .rain-divider {{ width: 1px; background: #27272a; }}
+  .stats-card {{ background: #111111; border: 1px solid #27272a; border-radius: 20px; padding: 26px 30px; margin-bottom: 50px; }}
+  .stats-row {{ width: 100%; }}
+  .stats-col {{ text-align: center; width: 50%; }}
+  .stats-value {{ font-size: 30pt; font-weight: 800; color: #38bdf8; }}
+  .stats-label {{ font-size: 14pt; font-weight: 600; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }}
+  .stats-divider {{ width: 1px; background: #27272a; }}
   .calendar-card {{ background: #09090b; border: 1px solid #27272a; border-radius: 28px; padding: 35px 25px; }}
   .calendar-table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
   .calendar-table th {{ font-size: 16pt; color: #71717a; padding-bottom: 25px; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; }}
@@ -225,17 +207,17 @@ html_final = f"""<!DOCTYPE html>
         </div>
       </div>
     </div>
-    <div class="rain-card">
-      <table class="rain-row">
+    <div class="stats-card">
+      <table class="stats-row">
         <tr>
-          <td class="rain-col">
-            <div class="rain-value">{lluvia_mm_hoy} mm</div>
-            <div class="rain-label">Hoy</div>
+          <td class="stats-col">
+            <div class="stats-value">{viento_kmh} km/h</div>
+            <div class="stats-label">Viento hoy</div>
           </td>
-          <td class="rain-divider"></td>
-          <td class="rain-col">
-            <div class="rain-value">{lluvia_acumulada_mes} mm</div>
-            <div class="rain-label">Acumulado del mes</div>
+          <td class="stats-divider"></td>
+          <td class="stats-col">
+            <div class="stats-value">{dias_lluvia_mes}</div>
+            <div class="stats-label">Días de lluvia este mes</div>
           </td>
         </tr>
       </table>
@@ -266,4 +248,4 @@ hti = Html2Image(
 hti.screenshot(html_str=html_final, save_as='instagram_story.png')
 
 print("¡Imagen generada exitosamente como 'instagram_story.png'!")
-print(f"Clima: {clima_actual} | Lluvia hoy: {lluvia_mm_hoy}mm | Acumulado mes: {lluvia_acumulada_mes}mm")
+print(f"Clima: {clima_actual} | Viento: {viento_kmh}km/h | Días de lluvia este mes: {dias_lluvia_mes}")
