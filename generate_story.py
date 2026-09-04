@@ -11,6 +11,7 @@ from html2image import Html2Image
 API_KEY = os.environ.get("OPENWEATHER_API_KEY", "")
 CITY = "La Plata,AR"
 URL = f"https://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={API_KEY}&units=metric&lang=es"
+URL_PRONOSTICO = f"https://api.openweathermap.org/data/2.5/forecast?q={CITY}&appid={API_KEY}&units=metric&lang=es"
 HISTORIAL_FILE = "historial_clima.json"
 
 # ---------------------------------------------------------
@@ -53,23 +54,45 @@ SVG_ICONS = {
 }
 
 def obtener_clima():
-    """Consulta el clima actual. Devuelve (tipo_clima, viento_kmh)."""
+    """Consulta el clima actual (para viento) y el pronóstico de lo que
+    resta del día (para decidir si hoy es un día de lluvia, en vez de
+    mirar solo el instante exacto en que corre el script).
+    Devuelve (tipo_clima, viento_kmh)."""
     try:
         res = requests.get(URL).json()
-        main_weather = res['weather'][0]['main'].lower()
+        main_weather_ahora = res['weather'][0]['main'].lower()
         viento_ms = res.get('wind', {}).get('speed', 0.0)
         viento_kmh = round(viento_ms * 3.6, 1)
-
-        if 'clear' in main_weather:
-            tipo = "sol"
-        elif 'rain' in main_weather or 'drizzle' in main_weather or 'thunderstorm' in main_weather:
-            tipo = "lluvia"
-        else:
-            tipo = "nublado"
-        return tipo, viento_kmh
     except Exception as e:
-        print(f"Error consultando la API: {e}. Se usará 'sol' por defecto.")
+        print(f"Error consultando el clima actual: {e}. Se usará 'sol' por defecto.")
         return "sol", 0.0
+
+    tipos_lluvia = ('rain', 'drizzle', 'thunderstorm')
+    hay_lluvia_hoy = any(t in main_weather_ahora for t in tipos_lluvia)
+
+    # Reviso el pronóstico de lo que resta del día de hoy: si en
+    # cualquier franja horaria está previsto lluvia, marco el día
+    # como lluvia, aunque en este instante puntual esté despejado.
+    try:
+        hoy_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        pronostico = requests.get(URL_PRONOSTICO).json()
+        for franja in pronostico.get('list', []):
+            if franja.get('dt_txt', '').startswith(hoy_str):
+                main_franja = franja['weather'][0]['main'].lower()
+                if any(t in main_franja for t in tipos_lluvia):
+                    hay_lluvia_hoy = True
+                    break
+    except Exception as e:
+        print(f"Error consultando el pronóstico: {e}. Sigo solo con el clima actual.")
+
+    if hay_lluvia_hoy:
+        tipo = "lluvia"
+    elif 'clear' in main_weather_ahora:
+        tipo = "sol"
+    else:
+        tipo = "nublado"
+
+    return tipo, viento_kmh
 
 def gestionar_historial(today, tipo_clima):
     historial = {}
