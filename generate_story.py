@@ -13,6 +13,73 @@ CITY = "La Plata,AR"
 URL = f"https://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={API_KEY}&units=metric&lang=es"
 URL_PRONOSTICO = f"https://api.openweathermap.org/data/2.5/forecast?q={CITY}&appid={API_KEY}&units=metric&lang=es"
 HISTORIAL_FILE = "historial_clima.json"
+FRASES_HISTORIAL_FILE = "historial_frases.json"
+
+# ---------------------------------------------------------
+# CITAS DE ARQUITECTOS
+# Frases cortas y verificadas en varias fuentes. Cada 5 citas de
+# arquitectos aparece una "descontracture".
+# ---------------------------------------------------------
+CITAS_ARQUITECTOS = [
+    {"texto": "La luz construye el tiempo.", "autor": "Alberto Campo Baeza"},
+    {"texto": "La luz es el material más lujoso que existe.", "autor": "Alberto Campo Baeza"},
+    {"texto": "El espacio debe ser el resultado de la luz, no de la oscuridad.", "autor": "Luis Barragán"},
+    {"texto": "Cualquier obra arquitectónica que no exprese serenidad, es un error.", "autor": "Luis Barragán"},
+    {"texto": "La forma sigue a la función, pero sigue siendo la forma.", "autor": "Kenzo Tange"},
+    {"texto": "La arquitectura no es una cuestión de estilo, es una cuestión de ideas.", "autor": "Oscar Niemeyer"},
+    {"texto": "Lo que me atrae es la curva libre y sensual.", "autor": "Oscar Niemeyer"},
+    {"texto": "Si se ignora al hombre, la arquitectura es innecesaria.", "autor": "Álvaro Siza"},
+    {"texto": "La arquitectura no es un arte.", "autor": "Jacques Herzog"},
+    {"texto": "Toca la tierra ligeramente.", "autor": "Glenn Murcutt"},
+    {"texto": "La sustentabilidad se ha transformado en una frase hecha.", "autor": "Glenn Murcutt"},
+    {"texto": "Poder hacer una cosa no legitima hacerla.", "autor": "Glenn Murcutt"},
+    {"texto": "Todo lo que tiene aire acondicionado es porque está construido al revés.", "autor": "Glenn Murcutt"},
+    {"texto": "Elijo geometrías simples para crear juegos dramáticos de luz y sombra.", "autor": "Tadao Ando"},
+]
+
+# ---------------------------------------------------------
+# DESCONTRACTURE
+# Aparece 1 de cada 5 veces, para bajarle el tono solemne.
+# ---------------------------------------------------------
+CITAS_DESCONTRACTURE = [
+    {"texto": "¡A la grande le puse Cuca!", "autor": "Homero Simpson"},
+    {"texto": "¡No vives de ensalada!", "autor": "Homero Simpson"},
+    {"texto": "Sin tele y sin cerveza, Homero pierde la cabeza.", "autor": "Homero Simpson"},
+    {"texto": "Yo no leo a Borges, no leo a Cortázar, leo a Sbaraglia y nada más.", "autor": "Homero Simpson"},
+]
+
+def elegir_frase():
+    """Elige una cita: 4 de cada 5 veces de arquitectos, 1 de cada 5
+    descontracture. No repite hasta agotar el banco correspondiente."""
+    import random
+
+    estado = {"usadas_arq": [], "usadas_descontr": [], "contador": 0}
+    if os.path.exists(FRASES_HISTORIAL_FILE):
+        with open(FRASES_HISTORIAL_FILE, "r", encoding="utf-8") as f:
+            try:
+                estado = json.load(f)
+            except Exception:
+                pass
+
+    estado["contador"] = estado.get("contador", 0) + 1
+    es_descontracture = (estado["contador"] % 5 == 0)
+    banco = CITAS_DESCONTRACTURE if es_descontracture else CITAS_ARQUITECTOS
+    clave_usadas = "usadas_descontr" if es_descontracture else "usadas_arq"
+
+    ya_usadas = estado.get(clave_usadas, [])
+    disponibles = [c for c in banco if c["texto"] not in ya_usadas]
+    if not disponibles:
+        disponibles = banco
+        ya_usadas = []
+
+    elegida = random.choice(disponibles)
+    ya_usadas.append(elegida["texto"])
+    estado[clave_usadas] = ya_usadas
+
+    with open(FRASES_HISTORIAL_FILE, "w", encoding="utf-8") as f:
+        json.dump(estado, f, indent=2, ensure_ascii=False)
+
+    return elegida
 
 # ---------------------------------------------------------
 # ÍCONOS DE CLIMA
@@ -163,6 +230,7 @@ clima_actual, viento_kmh = obtener_clima()
 historial = gestionar_historial(today, clima_actual)
 progreso_año = calcular_progreso_año(today)
 dias_lluvia_mes = contar_dias_lluvia_mes(historial, today)
+frase_del_dia = elegir_frase()
 
 meses_es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 nombre_mes = meses_es[today.month - 1]
@@ -185,30 +253,34 @@ html_final = f"""<!DOCTYPE html>
     overflow: hidden;
   }}
   .container {{ padding: 100px 50px 60px 50px; height: 100%; position: relative; z-index: 10; }}
-  .header {{ text-align: center; margin-bottom: 50px; }}
+  .header {{ text-align: center; margin-bottom: 30px; }}
   .month-title {{ font-size: 56pt; font-weight: 900; text-transform: uppercase; color: #ffffff; margin: 0; letter-spacing: 3px; }}
-  .progress-card {{ background: #111111; border: 1px solid #27272a; border-radius: 20px; padding: 30px; margin-bottom: 40px; }}
+  .progress-card {{ background: #111111; border: 1px solid #27272a; border-radius: 20px; padding: 24px 30px; margin-bottom: 26px; }}
   .progress-header-table {{ width: 100%; margin-bottom: 16px; }}
   .progress-title {{ font-size: 18pt; font-weight: 700; color: #e4e4e7; text-align: left; }}
   .progress-value {{ font-size: 20pt; font-weight: 800; color: #eab308; text-align: right; }}
   .progress-bar-border {{ border: 3px solid #3f3f46; padding: 6px; background-color: #000000; border-radius: 8px; }}
   .progress-bar-bg {{ width: 100%; height: 36px; background-color: #18181b; position: relative; }}
   .progress-bar-fill {{ height: 100%; background-color: #eab308; }}
-  .stats-card {{ background: #111111; border: 1px solid #27272a; border-radius: 20px; padding: 26px 30px; margin-bottom: 50px; }}
+  .stats-card {{ background: #111111; border: 1px solid #27272a; border-radius: 20px; padding: 20px 30px; margin-bottom: 30px; }}
   .stats-row {{ width: 100%; }}
   .stats-col {{ text-align: center; width: 50%; }}
   .stats-value {{ font-size: 30pt; font-weight: 800; color: #38bdf8; }}
   .stats-label {{ font-size: 14pt; font-weight: 600; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }}
   .stats-divider {{ width: 1px; background: #27272a; }}
-  .calendar-card {{ background: #09090b; border: 1px solid #27272a; border-radius: 28px; padding: 35px 25px; }}
+  .calendar-card {{ background: #09090b; border: 1px solid #27272a; border-radius: 28px; padding: 28px 25px; margin-bottom: 26px; }}
   .calendar-table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
   .calendar-table th {{ font-size: 16pt; color: #71717a; padding-bottom: 25px; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; }}
-  .calendar-table td {{ height: 135px; text-align: center; vertical-align: top; padding-top: 10px; border-top: 1px solid #18181b; position: relative; }}
+  .calendar-table td {{ height: 122px; text-align: center; vertical-align: top; padding-top: 10px; border-top: 1px solid #18181b; position: relative; }}
   .day-number {{ font-size: 20pt; font-weight: 700; color: #f4f4f5; display: block; }}
   .today-cell-box {{ background: transparent; border: 3px solid #eab308; border-radius: 16px; padding: 6px 4px 4px 4px; margin: -4px auto 0 auto; width: 88%; box-shadow: 0 0 15px rgba(234, 179, 8, 0.3); }}
   .today-cell-box .day-number {{ color: #ffffff; font-weight: 900; }}
   .day-icon {{ height: 60px; text-align: center; margin-top: 6px; }}
-  .footer {{ position: absolute; bottom: 50px; left: 0; width: 100%; text-align: center; font-size: 14pt; color: #52525b; font-weight: 500; }}
+  .quote-final {{ text-align: center; padding: 0 20px; }}
+  .quote-final .quote-mark {{ font-family: Georgia, 'Times New Roman', serif; font-size: 54pt; font-weight: 900; color: #eab308; opacity: 0.5; line-height: 0.6; margin-bottom: 4px; }}
+  .quote-final .quote-text {{ font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 23pt; font-weight: 500; color: #ffffff; line-height: 1.35; margin: 0; }}
+  .quote-final .quote-author {{ font-size: 15pt; font-weight: 700; color: #eab308; text-transform: uppercase; letter-spacing: 1px; margin-top: 16px; }}
+  .footer {{ text-align: center; font-size: 13pt; color: #52525b; font-weight: 500; margin-top: 22px; }}
   .footer .fuente {{ display: block; font-size: 11pt; color: #3f3f46; margin-top: 6px; }}
 </style>
 </head>
@@ -254,6 +326,11 @@ html_final = f"""<!DOCTYPE html>
           {filas_calendario_html}
         </tbody>
       </table>
+    </div>
+    <div class="quote-final">
+      <div class="quote-mark">"</div>
+      <p class="quote-text">{frase_del_dia['texto']}</p>
+      <p class="quote-author">— {frase_del_dia['autor']}</p>
     </div>
   </div>
   <div class="footer">
