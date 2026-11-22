@@ -9,7 +9,8 @@
     "La luz es el material más lujoso que existe.",
     "La arquitectura no es un arte.",
     "Si se ignora al hombre, la arquitectura es innecesaria.",
-    "La luz construye el tiempo."
+    "La luz construye el tiempo.",
+    "Toca la tierra ligeramente."
   ],
   "usadas_descontr": [
     "¡No vives de ensalada!",
@@ -17,5 +18,5 @@
     "¡A la grande le puse Cuca!",
     "Sin tele y sin cerveza, Homero pierde la cabeza."
   ],
-  "contador": 100
+  "contador": 101
 }
